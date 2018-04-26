@@ -21,5 +21,11 @@ def hello(x, *args):
 
 
 s = hello(0, np.array([1, 2, 3]), np.array([[4, 5, 6], [7, 8, 9]]))
-print(s[0].T)
-print(np.tile(s[0], (3, 1)).T)
+s1 = np.tile(s[0], (3, 1)).T
+s2 = np.zeros((3, 3))
+i = 0
+for x in s1:
+    s2[:, i] = x
+    i += 1
+s3 = s2[0, :]
+print(sum(s3))
