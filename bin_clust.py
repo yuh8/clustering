@@ -32,12 +32,15 @@ class binclust(object):
 
     def E_step(self, *arg):
         theta, pi_r, pi_s, pi_N, s_N = arg[0:]
+        # Pre-allocation for speed
+        pi_N_new = np.zeros((self.R, self.N))
+        s_N_new = np.zeros((2, self.N))
+        # Variational E-step
         i = 0
         for y in self.X:
             pi_N_new[:, i] = self.compute_pi_n(y, theta, pi_r, s_N[:, i])
             s_N_new[:, i] = self.compute_s_n(y, theta, pi_s, pi_N[:, i])
             i += 1
-
         return pi_N_new, s_N_new
 
     @staticmethod
