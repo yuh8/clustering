@@ -84,7 +84,7 @@ class binclust(object):
 
     def compute_pi_n(self, *arg):
         y, theta, pi_r, s_n = arg
-        # outer product of Y[n,:] I_R, size M by R
+        # Y_MR size M by R to match theta
         Y_MR = np.tile(y, (self.R, 1)).T
         # 1- Y_MR
         one_Y_MR = 1 - Y_MR
@@ -97,15 +97,15 @@ class binclust(object):
         sum_log_pi_n_num = np.log(pi_r) + np.sum(log_pi_n_num, axis=0)
         # log_sum_exp trick to prevent underflow
         pi_n = self.log_sum_exp(sum_log_pi_n_num)
+        # Re-normalize to ensure summing up to 1
         pi_n /= sum(pi_n)
         return pi_n
 
     def compute_s_n(self, *arg):
         y, theta, pi_s, pi_n = arg
-        # outer product of Y[n,:] I_R and elementwise product with outer product of I_M and z_Rn
+        # For computing Y_MR
         temp1 = np.tile(y, (self.R, 1)).T
         temp2 = np.tile(pi_n, (self.M, 1))
-        #
         Y_MR = np.multiply(temp1, temp2)
         one_Y_MR = np.multiply(1 - temp1, temp2)
         log_theta = np.log(theta)
@@ -117,6 +117,6 @@ class binclust(object):
         log_s_n_num_2 = np.multiply(one_Y_MR, log_theta) + np.multiply(Y_MR, one_log_theta)
         sum_log_s_n_num_2 = np.log(pi_s[1]) + np.sum(log_s_n_num_2)
         temp = [sum_log_s_n_num_1, sum_log_s_n_num_2]
-        pi_s = self.log_sum_exp(temp)
-        pi_s /= sum(pi_s)
-        return pi_s, sum_log_s_n_num_1, sum_log_s_n_num_2
+        s_n = self.log_sum_exp(temp)
+        s_n /= sum(s_n)
+        return s_n, sum_log_s_n_num_1, sum_log_s_n_num_2
