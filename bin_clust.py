@@ -41,7 +41,6 @@ class binclust(object):
         M_term1 = np.zeros(self.R)
         M_term2 = 0
         M_term3 = np.zeros((self.M, self.R))
-        M_term4 = np.zeros((self.M, self.R))
         for y in self.X:
             # The variational E_step
             pi_N_new[:, i] = self.compute_pi_n(y, theta, pi_r, s_N[:, i])
