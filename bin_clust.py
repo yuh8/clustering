@@ -27,7 +27,7 @@ class binclust(object):
         pi_s = np.random.rand(1)
         # initial posterior mean of weights R by N
         pi_N = np.tile(pi_r, (self.N, 1)).T
-        # initial posterior mean of coding scheme weights
+        # initial posterior mean of coding scheme weights 1 by N
         s_N = pi_s * np.ones(self.N)
         return theta, pi_r, pi_s, pi_N, s_N
 
@@ -53,18 +53,15 @@ class binclust(object):
             # Compute log-likelihood
             loglik += s_N_new[i] * temp[1]
             loglik += (1 - s_N_new[i]) * temp[2]
-            loglik += sum(np.multiply(pi_N_new[:, i], np.log(pi_r)))
+            loglik += np.dot(pi_N_new[:, i], np.log(pi_r))
             # Prepare for summation terms for M-step
             M_term1 += pi_N_new[:, i]
             M_term2 += s_N_new[i]
-            temp1 = np.tile((1 - s_N_new[i]) * (1 - y), (self.R, 1)).T
-            temp1 = np.multiply(temp1, np.tile(pi_N_new[:, i], (self.M, 1)))
-            M_term3 += temp1
-            temp2 = np.tile(s_N_new[i] * y, (self.R, 1)).T
-            temp2 = np.multiply(temp2, np.tile(pi_N_new[:, i], (self.M, 1)))
-            M_term3 += temp2
-            # M by R M_term3
             i += 1
+        s_N_temp = np.tile(s_N_new, (self.R, 1))
+        one_s_N_temp = 1 - s_N_temp
+        M_term3 = np.dot(np.multiply(pi_N_new, one_s_N_temp), 1 - self.X).T
+        M_term3 += np.dot(np.multiply(pi_N_new, s_N_temp), self.X).T
         return pi_N_new, s_N_new, M_term1, M_term2, M_term3, loglik
 
     def M_step(self, pi_N_new, s_N_new, M_term1, M_term2, M_term3):
@@ -87,17 +84,17 @@ class binclust(object):
         return y
 
     def compute_pi_N(self, y, theta, pi_r, s_N):
-        # Y_MR size M by R to match theta
-        Y_MR = np.tile(y, (self.R, 1)).T
-        # 1- Y_MR
-        one_Y_MR = 1 - Y_MR
+        # 1- y
+        one_y = 1 - y
+
         # log(theta) in M by R
         log_theta = np.log(theta)
         one_log_theta = np.log(1 - theta)
+
         # All M by R terms in equation 12
-        log_pi_N_num = s_N * (np.multiply(Y_MR, log_theta) + np.multiply(one_Y_MR, one_log_theta)) + (1 - s_N) * (np.multiply(one_Y_MR, log_theta) + np.multiply(Y_MR, one_log_theta))
-        # Sum over M rows
-        sum_log_pi_N_num = np.log(pi_r) + np.sum(log_pi_N_num, axis=0)
+        sum_log_pi_N_num = np.log(pi_r) + s_N * (np.dot(y, log_theta) + np.dot(one_y, one_log_theta))
+        + (1 - s_N) * (np.dot(one_y, log_theta) + np.dot(y, one_log_theta))
+
         # log_sum_exp trick to prevent underflow
         pi_N = self.log_sum_exp(sum_log_pi_N_num)
         # Re-normalize to ensure summing up to 1
@@ -105,27 +102,35 @@ class binclust(object):
         return pi_N
 
     def compute_s_N(self, y, theta, pi_s, pi_N):
-        # Computing Y_MR
-        temp1 = np.tile(y, (self.R, 1)).T
-        # pi_N in M by R format
-        temp2 = np.tile(pi_N, (self.M, 1))
-        # Computing Y_MR * pi_N
-        Y_MR = np.multiply(temp1, temp2)
-        # Computing (1-Y_MR) * pi_N
-        one_Y_MR = np.multiply(1 - temp1, temp2)
-        # log(theta)
         log_theta = np.log(theta)
-        # log(1-theta)
         one_log_theta = np.log(1 - theta)
+
+        # sum term1
+        temp1 = np.dot(y, log_theta)
+        temp1 = np.dot(pi_N, temp1)
+
+        # sum term 2
+        temp2 = np.dot(1 - y, one_log_theta)
+        temp2 = np.dot(pi_N, temp2)
+
+        # sum term 3
+        temp3 = np.dot(1 - y, log_theta)
+        temp3 = np.dot(pi_N, temp3)
+
+        # sum term 4
+        temp4 = np.dot(y, one_log_theta)
+        temp4 = np.dot(pi_N, temp4)
+
         # pi_s + sum over M row and R columns
-        log_s_N_num_1 = np.multiply(Y_MR, log_theta) + np.multiply(one_Y_MR, one_log_theta)
-        sum_log_s_N_num_1 = np.log(pi_s) + np.sum(log_s_N_num_1)
+        sum_log_s_N_num_1 = np.log(pi_s) + temp1 + temp2
+
         # 1-pi_s + sum over M row and R columns
-        log_s_N_num_2 = np.multiply(one_Y_MR, log_theta) + np.multiply(Y_MR, one_log_theta)
-        sum_log_s_N_num_2 = np.log(1 - pi_s) + np.sum(log_s_N_num_2)
+        sum_log_s_N_num_2 = np.log(1 - pi_s) + temp3 + temp4
+
         # log-sum-exp trick
         temp = [sum_log_s_N_num_1, sum_log_s_N_num_2]
         s_N_all = self.log_sum_exp(temp)
+
         # Re-normalize
         s_N = s_N_all[0] / sum(s_N_all)
         return s_N, sum_log_s_N_num_1, sum_log_s_N_num_2
