@@ -3,7 +3,7 @@ import pandas as pd
 
 
 class binclust(object):
-    """Clustering binary data with two coding scheme"""
+    """Row clustering binary data with two coding scheme"""
 
     def __init__(self, X, R=2):
         # X is a binary data frame
@@ -22,6 +22,7 @@ class binclust(object):
         theta = np.random.rand(self.M, self.R)
         # initial cluster weights
         pi_r = np.random.rand(self.R)
+        pi_r = self.log_sum_exp(pi_r)
         pi_r /= sum(pi_r)
         # initial coding scheme weights
         pi_s = np.random.rand(1)
@@ -35,39 +36,43 @@ class binclust(object):
         # Pre-allocation for speed
         pi_N_new = np.zeros((self.R, self.N))
         s_N_new = np.zeros((self.N))
+
         # Variational E-step
         i = 0
         loglik = 0
+
         # Initialize terms for M-step
         M_term1 = np.zeros(self.R)
         M_term2 = 0
-        M_term3 = np.zeros((self.M, self.R))
         for y in self.X:
             # The variational E_step
             arg_pi_N = [y, theta, pi_r, s_N[i]]
             pi_N_new[:, i] = self.compute_pi_N(*arg_pi_N)
-            arg_s_N = [y, theta, pi_s, pi_N[:, i]]
+            arg_s_N = [y, theta, pi_s, pi_N_new[:, i]]
             temp = self.compute_s_N(*arg_s_N)
-
             s_N_new[i] = temp[0]
+
             # Compute log-likelihood
             loglik += s_N_new[i] * temp[1]
             loglik += (1 - s_N_new[i]) * temp[2]
             loglik += np.dot(pi_N_new[:, i], np.log(pi_r))
+
             # Prepare for summation terms for M-step
             M_term1 += pi_N_new[:, i]
             M_term2 += s_N_new[i]
             i += 1
         s_N_temp = np.tile(s_N_new, (self.R, 1))
         one_s_N_temp = 1 - s_N_temp
-        M_term3 = np.dot(np.multiply(pi_N_new, one_s_N_temp), 1 - self.X).T
-        M_term3 += np.dot(np.multiply(pi_N_new, s_N_temp), self.X).T
+        M_term3_temp1 = np.dot(np.multiply(pi_N_new, one_s_N_temp), 1 - self.X).T
+        M_term3_temp2 = np.dot(np.multiply(pi_N_new, s_N_temp), self.X).T
+        M_term3 = M_term3_temp1 + M_term3_temp2
         return pi_N_new, s_N_new, M_term1, M_term2, M_term3, loglik
 
     def M_step(self, pi_N_new, s_N_new, M_term1, M_term2, M_term3):
         # Pre-allocate for speed
         pi_r_new = np.zeros(self.R)
         pi_s_new = 0
+
         # M_step
         pi_r_new = M_term1 / sum(M_term1)
         pi_s_new = M_term2 / self.N
@@ -76,15 +81,16 @@ class binclust(object):
 
     @staticmethod
     def log_sum_exp(x):
-        # chopp-off precision = e^-10
-        k = -10
+        # chopp-off precision = e^-100
+        k = -200
         e = x - np.max(x)
         y = np.exp(e) / sum(np.exp(e))
         y[e < k] = 0
+        y = y / sum(y)
         return y
 
     def compute_pi_N(self, y, theta, pi_r, s_N):
-        # 1- y
+        # 1 - y
         one_y = 1 - y
 
         # log(theta) in M by R
@@ -92,13 +98,12 @@ class binclust(object):
         one_log_theta = np.log(1 - theta)
 
         # All M by R terms in equation 12
-        sum_log_pi_N_num = np.log(pi_r) + s_N * (np.dot(y, log_theta) + np.dot(one_y, one_log_theta))
-        + (1 - s_N) * (np.dot(one_y, log_theta) + np.dot(y, one_log_theta))
+        temp1 = np.log(pi_r) + s_N * (np.dot(y, log_theta) + np.dot(one_y, one_log_theta))
+        temp2 = (1 - s_N) * (np.dot(one_y, log_theta) + np.dot(y, one_log_theta))
+        sum_log_pi_N_num = temp1 + temp2
 
-        # log_sum_exp trick to prevent underflow
+        # log_sum_exp trick to avoid underflow
         pi_N = self.log_sum_exp(sum_log_pi_N_num)
-        # Re-normalize to ensure summing up to 1
-        pi_N /= sum(pi_N)
         return pi_N
 
     def compute_s_N(self, y, theta, pi_s, pi_N):
@@ -130,7 +135,5 @@ class binclust(object):
         # log-sum-exp trick
         temp = [sum_log_s_N_num_1, sum_log_s_N_num_2]
         s_N_all = self.log_sum_exp(temp)
-
-        # Re-normalize
-        s_N = s_N_all[0] / sum(s_N_all)
+        s_N = s_N_all[0]
         return s_N, sum_log_s_N_num_1, sum_log_s_N_num_2
