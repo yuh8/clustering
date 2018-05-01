@@ -46,10 +46,8 @@ class binclust(object):
         M_term2 = 0
         for y in self.X:
             # The variational E_step
-            arg_pi_N = [y, theta, pi_r, s_N[i]]
-            pi_N_new[:, i] = self.compute_pi_N(*arg_pi_N)
-            arg_s_N = [y, theta, pi_s, pi_N_new[:, i]]
-            temp = self.compute_s_N(*arg_s_N)
+            pi_N_new[:, i] = self.compute_pi_N(y, theta, pi_r, s_N[i])
+            temp = self.compute_s_N(y, theta, pi_s, pi_N_new[:, i])
             s_N_new[i] = temp[0]
 
             # Compute log-likelihood
@@ -63,9 +61,9 @@ class binclust(object):
             i += 1
         s_N_temp = np.tile(s_N_new, (self.R, 1))
         one_s_N_temp = 1 - s_N_temp
-        M_term3_temp1 = np.dot(np.multiply(pi_N_new, one_s_N_temp), 1 - self.X).T
-        M_term3_temp2 = np.dot(np.multiply(pi_N_new, s_N_temp), self.X).T
-        M_term3 = M_term3_temp1 + M_term3_temp2
+        temp1 = np.dot(np.multiply(pi_N_new, one_s_N_temp), 1 - self.X).T
+        temp2 = np.dot(np.multiply(pi_N_new, s_N_temp), self.X).T
+        M_term3 = temp1 + temp2
         return pi_N_new, s_N_new, M_term1, M_term2, M_term3, loglik
 
     def M_step(self, pi_N_new, s_N_new, M_term1, M_term2, M_term3):
@@ -82,7 +80,7 @@ class binclust(object):
     @staticmethod
     def log_sum_exp(x):
         # chopp-off precision = e^-100
-        k = -200
+        k = -100
         e = x - np.max(x)
         y = np.exp(e) / sum(np.exp(e))
         y[e < k] = 0
@@ -100,10 +98,10 @@ class binclust(object):
         # All M by R terms in equation 12
         temp1 = np.log(pi_r) + s_N * (np.dot(y, log_theta) + np.dot(one_y, one_log_theta))
         temp2 = (1 - s_N) * (np.dot(one_y, log_theta) + np.dot(y, one_log_theta))
-        sum_log_pi_N_num = temp1 + temp2
+        log_pi_N = temp1 + temp2
 
         # log_sum_exp trick to avoid underflow
-        pi_N = self.log_sum_exp(sum_log_pi_N_num)
+        pi_N = self.log_sum_exp(log_pi_N)
         return pi_N
 
     def compute_s_N(self, y, theta, pi_s, pi_N):
@@ -111,20 +109,16 @@ class binclust(object):
         one_log_theta = np.log(1 - theta)
 
         # sum term1
-        temp1 = np.dot(y, log_theta)
-        temp1 = np.dot(pi_N, temp1)
+        temp1 = np.dot(np.dot(y, log_theta), pi_N)
 
         # sum term 2
-        temp2 = np.dot(1 - y, one_log_theta)
-        temp2 = np.dot(pi_N, temp2)
+        temp2 = np.dot(np.dot(1 - y, one_log_theta), pi_N)
 
         # sum term 3
-        temp3 = np.dot(1 - y, log_theta)
-        temp3 = np.dot(pi_N, temp3)
+        temp3 = np.dot(np.dot(1 - y, log_theta), pi_N)
 
         # sum term 4
-        temp4 = np.dot(y, one_log_theta)
-        temp4 = np.dot(pi_N, temp4)
+        temp4 = np.dot(np.dot(y, one_log_theta), pi_N)
 
         # pi_s + sum over M row and R columns
         sum_log_s_N_num_1 = np.log(pi_s) + temp1 + temp2
