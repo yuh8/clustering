@@ -13,3 +13,5 @@ print(s_N0)
 print(type(l))
 
 print(zip(*l))
+
+# Test a simpler model
