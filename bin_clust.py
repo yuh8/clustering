@@ -74,6 +74,13 @@ class binclust(object):
         # M_step
         pi_r_new = M_term1 / sum(M_term1)
         pi_s_new = M_term2 / self.N
+        precis = -10
+        if pi_s_new < np.exp(precis):
+            pi_s_new = np.exp(precis)
+        elif pi_s_new > 1 - np.exp(precis):
+            pi_s_new = 1 - np.exp(precis)
+        else:
+            pass
         theta_new = np.divide(M_term3, np.tile(M_term1, (self.M, 1)))
         return theta_new, pi_r_new, pi_s_new, pi_N_new, s_N_new
 
