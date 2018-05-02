@@ -13,6 +13,7 @@ class binclust_simp(object):
             self.X = np.array(X)
         # Specifying number of clusters Default is 3
         self.R = R
+        self.Precis = -20
 
     @property
     def para_init(self):
@@ -74,20 +75,21 @@ class binclust_simp(object):
         # M_step
         pi_r_new = M_term1 / sum(M_term1)
         pi_s_new = M_term2 / self.N
-        precis = -10
-        if pi_s_new < np.exp(precis):
-            pi_s_new = np.exp(precis)
-        elif pi_s_new > 1 - np.exp(precis):
-            pi_s_new = 1 - np.exp(precis)
+
+        cut_off = np.exp(self.Precis)
+        if pi_s_new < cut_off:
+            pi_s_new = cut_off
+        elif pi_s_new > 1 - cut_off:
+            pi_s_new = 1 - cut_off
         else:
             pass
+
         theta_new = np.divide(M_term3, self.M * M_term1)
         return theta_new, pi_r_new, pi_s_new, pi_N_new, s_N_new
 
-    @staticmethod
-    def log_sum_exp(x):
+    def log_sum_exp(self, x):
         # chopp-off precision = e^-100
-        k = -100
+        k = self.Precis
         e = x - np.max(x)
         y = np.exp(e) / sum(np.exp(e))
         y[e < k] = 0
