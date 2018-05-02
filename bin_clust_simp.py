@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 
-class binclust(object):
+class binclust_simp(object):
     """Row clustering binary data with two coding scheme"""
 
     def __init__(self, X, R=2):
@@ -19,7 +19,7 @@ class binclust(object):
         self.N = self.X.shape[0]
         self.M = self.X.shape[1]
         # M by R array of initial thetas
-        theta = np.random.rand(self.M, self.R)
+        theta = np.random.rand(self.R)
         # initial cluster weights
         pi_r = np.random.rand(self.R)
         pi_r = self.log_sum_exp(pi_r)
@@ -63,7 +63,7 @@ class binclust(object):
         one_s_N_temp = 1 - s_N_temp
         temp1 = np.dot(np.multiply(pi_N_new, one_s_N_temp), 1 - self.X).T
         temp2 = np.dot(np.multiply(pi_N_new, s_N_temp), self.X).T
-        M_term3 = temp1 + temp2
+        M_term3 = np.sum(temp1 + temp2, axis=0)
         return pi_N_new, s_N_new, M_term1, M_term2, M_term3, loglik
 
     def M_step(self, pi_N_new, s_N_new, M_term1, M_term2, M_term3):
@@ -74,7 +74,14 @@ class binclust(object):
         # M_step
         pi_r_new = M_term1 / sum(M_term1)
         pi_s_new = M_term2 / self.N
-        theta_new = np.divide(M_term3, np.tile(M_term1, (self.M, 1)))
+        precis = -10
+        if pi_s_new < np.exp(precis):
+            pi_s_new = np.exp(precis)
+        elif pi_s_new > 1 - np.exp(precis):
+            pi_s_new = 1 - np.exp(precis)
+        else:
+            pass
+        theta_new = np.divide(M_term3, self.M * M_term1)
         return theta_new, pi_r_new, pi_s_new, pi_N_new, s_N_new
 
     @staticmethod
@@ -83,8 +90,8 @@ class binclust(object):
         k = -100
         e = x - np.max(x)
         y = np.exp(e) / sum(np.exp(e))
-        y[e < k] = 0
-        y = y / sum(y)
+        # y[e < k] = 0
+        # y = y / sum(y)
         return y
 
     def compute_pi_N(self, y, theta, pi_r, s_N):
@@ -96,8 +103,8 @@ class binclust(object):
         one_log_theta = np.log(1 - theta)
 
         # All M by R terms in equation 12
-        temp1 = np.log(pi_r) + s_N * (np.dot(y, log_theta) + np.dot(one_y, one_log_theta))
-        temp2 = (1 - s_N) * (np.dot(one_y, log_theta) + np.dot(y, one_log_theta))
+        temp1 = np.log(pi_r) + s_N * (log_theta * sum(y) + one_log_theta * sum(one_y))
+        temp2 = (1 - s_N) * (log_theta * sum(one_y) + one_log_theta * sum(y))
         log_pi_N = temp1 + temp2
 
         # log_sum_exp trick to avoid underflow
@@ -107,18 +114,20 @@ class binclust(object):
     def compute_s_N(self, y, theta, pi_s, pi_N):
         log_theta = np.log(theta)
         one_log_theta = np.log(1 - theta)
+        sum_y = sum(y)
+        sum_y_one = sum(1 - y)
 
         # sum term1
-        temp1 = np.dot(np.dot(y, log_theta), pi_N)
+        temp1 = np.dot(sum_y * log_theta, pi_N)
 
         # sum term 2
-        temp2 = np.dot(np.dot(1 - y, one_log_theta), pi_N)
+        temp2 = np.dot(sum_y_one * one_log_theta, pi_N)
 
         # sum term 3
-        temp3 = np.dot(np.dot(1 - y, log_theta), pi_N)
+        temp3 = np.dot(sum_y_one * log_theta, pi_N)
 
         # sum term 4
-        temp4 = np.dot(np.dot(y, one_log_theta), pi_N)
+        temp4 = np.dot(sum_y * one_log_theta, pi_N)
 
         # pi_s + sum over M row and R columns
         sum_log_s_N_num_1 = np.log(pi_s) + temp1 + temp2
