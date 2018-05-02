@@ -90,8 +90,8 @@ class binclust_simp(object):
         k = -100
         e = x - np.max(x)
         y = np.exp(e) / sum(np.exp(e))
-        # y[e < k] = 0
-        # y = y / sum(y)
+        y[e < k] = 0
+        y = y / sum(y)
         return y
 
     def compute_pi_N(self, y, theta, pi_r, s_N):
