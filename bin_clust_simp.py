@@ -11,7 +11,7 @@ class binclust_simp(object):
             self.X = X.as_matrix()
         else:
             self.X = np.array(X)
-        # Specifying number of clusters Default is 3
+        # Specifying number of clusters Default is 2
         self.R = R
         self.Precis = -20
 
@@ -24,7 +24,6 @@ class binclust_simp(object):
         # initial cluster weights
         pi_r = np.random.rand(self.R)
         pi_r = self.log_sum_exp(pi_r)
-        pi_r /= sum(pi_r)
         # initial coding scheme weights
         pi_s = np.random.rand(1)
         # initial posterior mean of weights R by N
@@ -76,13 +75,23 @@ class binclust_simp(object):
         pi_r_new = M_term1 / sum(M_term1)
         pi_s_new = M_term2 / self.N
 
-        cut_off = np.exp(self.Precis)
-        if pi_s_new < cut_off:
-            pi_s_new = cut_off
-        elif pi_s_new > 1 - cut_off:
-            pi_s_new = 1 - cut_off
-        else:
-            pass
+        # Cut off small and large pi_s
+        # cut_off = np.exp(self.Precis)
+        # if pi_s_new < cut_off:
+        #     pi_s_new = cut_off
+        # elif pi_s_new > 1 - cut_off:
+        #     pi_s_new = 1 - cut_off
+        # else:
+        #     pass
+
+        # # Cut off small and large pi_r
+        # for r in range(0, self.R):
+        #     if pi_r_new[r] < cut_off:
+        #         pi_r_new[r] = cut_off
+        #     elif pi_r_new[r] > 1 - cut_off:
+        #         pi_r_new[r] = 1 - cut_off
+        #     else:
+        #         pass
 
         theta_new = np.divide(M_term3, self.M * M_term1)
         return theta_new, pi_r_new, pi_s_new, pi_N_new, s_N_new
@@ -92,7 +101,7 @@ class binclust_simp(object):
         k = self.Precis
         e = x - np.max(x)
         y = np.exp(e) / sum(np.exp(e))
-        y[e < k] = 0
+        y[e < k] = np.exp(k)
         y = y / sum(y)
         return y
 

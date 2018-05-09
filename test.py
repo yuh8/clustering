@@ -8,9 +8,6 @@ l = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
 x = np.linspace(1, 10, 10)
 y = np.linspace(1, 10, 10)
 X, Y = np.meshgrid(x, y)
-print(X[0:10, :])
-print(Y[0:10, :])
-print(Y.shape)
-
+print(np.arange(0, 10))
 
 # Test a simpler model
