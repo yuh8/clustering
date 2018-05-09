@@ -74,25 +74,6 @@ class binclust_simp(object):
         # M_step
         pi_r_new = M_term1 / sum(M_term1)
         pi_s_new = M_term2 / self.N
-
-        # Cut off small and large pi_s
-        # cut_off = np.exp(self.Precis)
-        # if pi_s_new < cut_off:
-        #     pi_s_new = cut_off
-        # elif pi_s_new > 1 - cut_off:
-        #     pi_s_new = 1 - cut_off
-        # else:
-        #     pass
-
-        # # Cut off small and large pi_r
-        # for r in range(0, self.R):
-        #     if pi_r_new[r] < cut_off:
-        #         pi_r_new[r] = cut_off
-        #     elif pi_r_new[r] > 1 - cut_off:
-        #         pi_r_new[r] = 1 - cut_off
-        #     else:
-        #         pass
-
         theta_new = np.divide(M_term3, self.M * M_term1)
         return theta_new, pi_r_new, pi_s_new, pi_N_new, s_N_new
 
